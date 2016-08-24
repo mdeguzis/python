@@ -1,7 +1,7 @@
 Learning_Python
 ===============
 
-Programs I made learning Python
+Programs I made learning Python. The focus here is on Python 3.x.
 
 Quick_help
 ===============
