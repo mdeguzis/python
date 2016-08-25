@@ -19,3 +19,9 @@ alias python=python3
 Current_Program_List:
 ===============
 (1) GameOver.py - A simple Hello World type program
+
+
+Links
+=====
+
+* [Learning Python (learningpython)](http://www.learnpython.org/)
