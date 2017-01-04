@@ -25,6 +25,10 @@ print(
 print("Enter the beginning and ending index for your slice of 'pizza'.")
 print("Press the ENTER key at 'Start' to exit.")
 
+# 'None' is a special way of representing nothing, akin to 'NULL'
+# The purpose here is to initialize 'start'
+# It is a good placeholder for a value
+# It will also evauluate to False.
 start = None
 
 # loop while start is not blank
