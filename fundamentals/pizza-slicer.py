@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 
 # Pizza Slice program
 # Demonstrates string slicing
