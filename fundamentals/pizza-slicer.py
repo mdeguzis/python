@@ -48,3 +48,8 @@ while start != "":
 		print("word[", start, ":", finish, "] is ", end= " ")
 		print(word[start:finish])
 
+# Note:
+# There is also a shorthand for slicing
+# Given the word being 'pizza', you can issue:
+# 	print word[0:4]
+# to get "pizz"
