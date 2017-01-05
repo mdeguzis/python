@@ -22,20 +22,23 @@ jumble = ""
 
 # loop until word is equal to the emptry string above
 # each time the loop executes, the computer creates a new version of 'word'
-# with one letter extracted and assigns it back to word. Eventually, 'word'
+# with one letter "extracted" and assigns it back to word. Eventually, 'word'
 # will become the empty string and the jumbling will be done.
 
 while word:
 	# get random pos in 'word'
 	position = random.randrange(len(word))
 
-	# create the new version of the string 'jumble'
+	# create the new version of the string 'jumble' by taking
+	# a letter in the index at that random position
 	jumble += word[position]
 
-	# create new versio of word
+	# create new version of word
 	# Using slicing, we create two new strings from 'word'
 	# The first, 'word[:position]', is every letter up to, but no including 'word[position]'
-	# the next, 'word[position]' 
+	# the next, 'word[(position) + 1:]', is every letter after word[position] 
+	# These two strings are joined and assigned to 'word' which is equal to old self, minues the one
+	# letter word[position]
 	word = word[:position] + word[(position + 1):]
 
 # Welcome screen for player
