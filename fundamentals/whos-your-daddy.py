@@ -37,9 +37,12 @@ while choice != "0":
 		print "Goodbye."
 
 	# get a family_member
+	# Get the value from the family_member "key"
 	elif choice == "1":
 		family_member = raw_input("Which family member should I look up?: ")
 		if family_member in family:
+			# This assigns the value from family, where key is "family_member", and assigns it to "father"
+			# Remember, dictionaries are accessed commonly via "dictionary[key]", which returns the key's value
 			father = family[family_member]
 			print "\n", family_member + "'s dad is " + father
 		else:
@@ -49,7 +52,10 @@ while choice != "0":
 	elif choice == "2":
 		family_member = raw_input("Which family mamber should I check a grandfather for?: ")
 		if family_member in family:
+			# This assigns the value from family, where key is "family_member", and assigns it to "father"
 			father = family[family_member]
+			# This goes further, checking the "father" value as an actual key request in family. Assin the
+			# returned value as the grandfather
 			if father in family:
 				grandfather = family[father]
 			print "\n", family_member + "'s grandfather is " + grandfather
