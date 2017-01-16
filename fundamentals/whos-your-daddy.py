@@ -58,7 +58,9 @@ while choice != "0":
 			# returned value as the grandfather
 			if father in family:
 				grandfather = family[father]
-			print "\n", family_member + "'s grandfather is " + grandfather
+				print "\n", family_member + "'s grandfather is " + grandfather
+			else:
+				print family_member + " doesn't have a grandfather listed, try adding the family entry"
 		else:
 			print "\nSorry, I don't know " + family_member
 
