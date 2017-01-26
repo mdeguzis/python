@@ -3,6 +3,14 @@
 # Description: Monitors system resources (WIP)
 ######
 
+'''
+As a starting point I'd want to know if five minute load average exceeds 
+2xCPU (on our nodes greater than 80) and/or if iowait exceeds 30.
+
+Once we know when/if that's happening we can tweak from there based on 
+what we see on the actual systems during heavy job use.
+'''
+
 import argparse
 import subprocess
 import time
@@ -11,10 +19,6 @@ import socket
 import sys
 import os
 import glob
-
-# Set gloabal variables for processed users and groups
-processed_ad_groups = []
-processed_ldap_groups = []
 
 # Other vars
 origin_host = socket.gethostname()
@@ -38,10 +42,6 @@ stdoutLogger.setLevel(logging.WARNING)
 stdoutLogger.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
 logging.getLogger().addHandler(stdoutLogger)
 logging.info("\n-------------------------\nBEGIN LOG FILE\n-------------------------\n") 
-
-# LDAP host parameters
-adldapuri = "ldaps://adldapserver.geisinger.edu"
-ldapuri = "ldaps://smgldaprlx2v.geisinger.edu"
 
 aparser = argparse.ArgumentParser(description="Generate AD Groups and Memberships for Ranger")
 aparser.add_argument('-nl', '--nolog', action='store_true', default=False, help="Do not store the log (useful for testing)")
