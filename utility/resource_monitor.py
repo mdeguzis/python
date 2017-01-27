@@ -1,6 +1,9 @@
 #!/usr/bin/python
 ######
 # Description: Monitors system resources (WIP)
+#	Loggign is designed to be minimal with stdout, rewritting the
+#	Buffer to output normal/warning/critical states
+#	file-level logging outputs deatil at regular intervals
 ######
 
 '''
