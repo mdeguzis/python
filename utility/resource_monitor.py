@@ -40,7 +40,7 @@ logging.basicConfig(filename=log_filename_tmp, level=logging.DEBUG, filemode='w'
 # Log to file and to stdout
 # For the console logger, only show warnings, error, critical
 stdoutLogger=logging.StreamHandler()
-stdoutLogger.setLevel(logging.CRITICAL)
+stdoutLogger.setLevel(logging.ERROR)
 stdoutLogger.setFormatter(logging.Formatter('%(levelname)s - %(message)s'))
 logging.getLogger().addHandler(stdoutLogger)
 logging.info("\n-------------------------\nBEGIN LOG FILE\n-------------------------\n") 
@@ -94,6 +94,7 @@ def test_cpu_load(finish_time):
 	cpu_limit_15min = float(2.10)
 	cpu_limit_threshold = cpu_limit_1min
 	cpu_limit_warning = cpu_limit_threshold / 2
+	cpu_limit_critical = cpu_limit_threshold / 1.5
 	print "Running OS load averge until:", finish_time
 	print "CPU threshold limit:", cpu_limit_threshold
 
@@ -104,16 +105,22 @@ def test_cpu_load(finish_time):
 		load_average = {1: raw_average[0], 5: raw_average[1], 15: raw_average[2]}
 		logging.info("CPU Load sample: " + str(load_average))
 
-		if raw_average[0] < cpu_limit_threshold:
-			sys.stdout.write('\r'+ 'CPU limit within threshold. Continuing to monitor...')
+		if raw_average[0] >= cpu_limit_critical:
+			sys.stdout.write('\r'+ 'WARNING: CPU limit at critical capacity             ')
 			sys.stdout.flush()
+			logging.warning("CPU load at critical capacity: " + str(load_average))
 		elif raw_average[0] >= cpu_limit_warning:
 			# Make sure to make the buffer rewrite at least as long as the last to overwrite it all
 			sys.stdout.write('\r'+ 'WARNING: CPU limit at half capacity                 ')
 			sys.stdout.flush()
 			logging.warning("CPU load at half capacity: " + str(load_average))
-		elif raw_average[0] >= cpu_limit_threshold:
-			sys.exit("CPU limit reached! limiter: " + str(cpu_limit_threshold))
+		elif raw_average[0] < cpu_limit_threshold:
+			sys.stdout.write('\r'+ 'CPU limit within threshhold. Continuing to monitor...')
+			sys.stdout.flush()
+
+		# Check outside of conditionals if the limit has been met
+		if raw_average[0] > cpu_limit_threshold:
+			sys.exit("\nCPU limit reached! limiter: " + str(cpu_limit_threshold))
 
 		# Idle for a bit so we are not flooding the log
 		time.sleep(10)
