@@ -109,7 +109,7 @@ def test_cpu_load(finish_time):
 		if raw_average[0] >= cpu_limit_critical:
 			sys.stdout.write('\r'+ 'WARNING: CPU limit at critical capacity              ')
 			sys.stdout.flush()
-			logging.warning("CPU load at critical capacity: " + str(load_average))
+			logging.critical("CPU load at critical capacity: " + str(load_average))
 		elif raw_average[0] >= cpu_limit_warning:
 			# Make sure to make the buffer rewrite at least as long as the last to overwrite it all
 			sys.stdout.write('\r'+ 'WARNING: CPU limit at half capacity                  ')
