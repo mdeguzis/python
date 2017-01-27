@@ -89,12 +89,13 @@ def test_cpu_load(finish_time):
 	# and/or if iowait exceeds 30. Generate CPU load with parallel instances of:
 	# 'dd if=/dev/zero of=/dev/null'
 
-	cpu_limit_1min = float(10.10)
-	cpu_limit_5min = float(5.10)
-	cpu_limit_15min = float(2.10)
+	# Set warning at 50%, Critical at 90%
+	cpu_limit_1min = float(20.10)
+	cpu_limit_5min = float(10.10)
+	cpu_limit_15min = float(5.10)
 	cpu_limit_threshold = cpu_limit_1min
-	cpu_limit_warning = cpu_limit_threshold / 2
-	cpu_limit_critical = cpu_limit_threshold / 1.5
+	cpu_limit_warning = cpu_limit_threshold * .5
+	cpu_limit_critical = cpu_limit_threshold *.9
 	print "Running OS load averge until:", finish_time
 	print "CPU threshold limit:", cpu_limit_threshold
 
@@ -104,6 +105,7 @@ def test_cpu_load(finish_time):
 		raw_average = os.getloadavg()
 		load_average = {1: raw_average[0], 5: raw_average[1], 15: raw_average[2]}
 		logging.info("CPU Load sample: " + str(load_average))
+		#print "\n" + str(load_average)
 
 		if raw_average[0] >= cpu_limit_critical:
 			sys.stdout.write('\r'+ 'WARNING: CPU limit at critical capacity              ')
