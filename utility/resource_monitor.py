@@ -6,14 +6,6 @@
 #	file-level logging outputs deatil at regular intervals
 ######
 
-'''
-As a starting point I'd want to know if five minute load average exceeds 
-2xCPU (on our nodes greater than 80) and/or if iowait exceeds 30.
-
-Once we know when/if that's happening we can tweak from there based on 
-what we see on the actual systems during heavy job use.
-'''
-
 import argparse
 import subprocess
 import time
@@ -24,6 +16,8 @@ import os
 import glob
 import time
 import datetime
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Other vars
 origin_host = socket.gethostname()
@@ -34,7 +28,7 @@ origin_host = socket.gethostname()
 
 # Stamp log with exact time
 # Rename log only at the end of script to avoid clutter
-log_filename_tmp = "/tmp/resource-monitor-log-tmp.txt"
+log_filename_tmp = "/tmp/os-resource-monitor-log-tmp.txt"
 log_dest_hdfs = '/uda-scripts/audit/adretriever'
 # Reuse the same log file for now (unless we should keep these rolling)
 # Log all for file log
@@ -49,6 +43,12 @@ logging.getLogger().addHandler(stdoutLogger)
 logging.info("\n-------------------------\nBEGIN LOG FILE\n-------------------------\n") 
 
 aparser = argparse.ArgumentParser(description="Generate AD Groups and Memberships for Ranger")
+aparser.add_argument('-cpult1', '--cpu-load-threshold1', help="specify CPU load threshold (1 minute)")
+aparser.add_argument('-cpult5', '--cpu-load-threshold5', help="specify CPU load threshold (5 minutse)")
+aparser.add_argument('-cpult15', '--cpu-load-threshold15', help="specify CPU load threshold (15 minutes)")
+aparser.add_argument('-cti', '--cpu-interval', help="specify main cpu internal to monitor (1, 5, or 15 min)")
+aparser.add_argument('-r', '--refresh-rate', help="specify how often to check the samples (seconds, default 15)")
+aparser.add_argument('-d', '--days', help="runtime in days")
 aparser.add_argument('-hr', '--hours', help="runtime in hours")
 aparser.add_argument('-m', '--minutes', help="runtime in minutes")
 aparser.add_argument('-s', '--seconds', help="runtime in seconds")
@@ -66,98 +66,170 @@ elif args.minutes is not None and args.hours is not None:
 	sys.exit("ERROR: Arguments cannot be specified together.")
 elif args.hours is not None and args.seconds is not None:
 	sys.exit("ERROR: Arguments cannot be specified together.")
+elif args.days is not None and args.seconds is not None:
+	sys.exit("ERROR: Arguments cannot be specified together.")
+elif args.days is not None and args.minutes is not None:
+	sys.exit("ERROR: Arguments cannot be specified together.")
+elif args.days is not None and args.hours is not None:
+	sys.exit("ERROR: Arguments cannot be specified together.")
 
-if args.hours is not None:
+# 1 minute cpu_load_threshold
+if args.cpu_load_threshold1 is None:
+	# set default
+	cpu_load_threshold1 = float(80.00)
+else:
+	cpu_load_threshold1 = float(args.cpu_load_threshold1)
+
+# 5 minute cpu_load_threshold
+if args.cpu_load_threshold5 is None:
+	# set default
+	cpu_load_threshold5 = float(80.00)
+else:
+	cpu_load_threshold5 = float(args.cpu_load_threshold5)
+
+# 15 minute cpu_load_threshold
+if args.cpu_load_threshold15 is None:
+	# set default
+	cpu_load_threshold15 = float(80.00)
+else:
+	cpu_load_threshold15 = float(args.cpu_load_threshold15)
+
+# Set main interval to monitor
+if args.cpu_interval is None:
+	# set default to 1 minute intervals
+	cpu_interval_string = '1 min'
+	cpu_interval = cpu_load_threshold1 
+else:
+	cpu_interval_tmp = int(args.cpu_interval)
+	# Set interval based on arg
+	if cpu_interval_tmp is 1:
+		cpu_interval_string = '1 min'
+		cpu_interval = cpu_load_threshold1 
+		raw_avg_index = 0
+	elif cpu_interval_tmp is 5:
+		cpu_interval_string = '5 min'
+		cpu_interval = cpu_load_threshold5 
+		raw_avg_index = 1
+	elif cpu_interval_tmp is 15:
+		cpu_interval_string = '15 min'
+		cpu_interval = cpu_load_threshold15 
+		raw_avg_index = 2
+	else:
+		sys.exit("Invalid CPU interval specified")
+	
+# Set runtime
+if args.days is not None:
+	total_days = int(args.days)
+	finish_time = datetime.datetime.now() + datetime.timedelta(days=total_days)
+elif args.hours is not None:
 	total_hours = int(args.hours)
-	finish_time = datetime.datetime.now() + datetime.timedelta(seconds=total_hours)
-
-if args.minutes is not None:
+	finish_time = datetime.datetime.now() + datetime.timedelta(hours=total_hours)
+elif args.minutes is not None:
 	total_minutes = int(args.minutes)
 	finish_time = datetime.datetime.now() + datetime.timedelta(minutes=total_minutes)
-
-if args.seconds is not None:
+elif args.seconds is not None:
 	total_seconds = int(args.seconds)
 	finish_time = datetime.datetime.now() + datetime.timedelta(seconds=total_seconds)
+else:
+	# set a default runtie of 60 minutes
+	finish_time = datetime.datetime.now() + datetime.timedelta(minutes=60)
 
-def sendEmail(msg):
+# set refresh rate for sampling
+if args.refresh_rate is not None:
+	refresh_rate = int(args.refresh_rate)
+else:
+	# set default to 15
+	refresh_rate = 15
+
+# 
+# Functions
+#
+
+def send_cpu_alert_email(cpu_load_threshold, cpu_load_avg, cpu_interval):
 	""" Sends an email out based on given information """
+
+	# Set a few variables to make the email nice looking
+	date_stamp = str(time.strftime("%c"))
+	divider = str('-' * 80 + "\n")
+	origin_host = socket.gethostname()
+
+	# Define the message headers
+	msg = MIMEMultipart()
+	msg["From"] = "" 
+	msg["To"] = "" 
+	#msg["Cc"] = "udahadoopops@geisinger.edu" 
+	msg["Subject"] = "Cluster CPU load threshold reached on: " + origin_host
+	msg.attach(MIMEText(
+	"Notice: \nCPU load avg of " + str(cpu_load_threshold) + " reached" +
+	" at an interval of " + cpu_interval_string +
+	". The load avg at time of notification was " + str(cpu_load_avg) +
+	"\n\nPlease do not reply to this email.\n\n" + divider + 
+	"(Sent via Linux Sendmail on " + origin_host + " at " + date_stamp + " via os-resource-mon.py)"
+	))
 
 	p = subprocess.Popen(["/usr/sbin/sendmail", "-t", "-oi"], stdin=subprocess.PIPE)
 	p.communicate(msg.as_string())
 
-def test_cpu_load(finish_time):
+def test_cpu_load(finish_time, cpu_load_threshold1, cpu_load_threshold5, cpu_load_threshold15, cpu_interval, raw_avg_index):
 	"""Tests CPU load from a fixed time frame"""
 
-	# Goal: want to know if five minute load average exceeds 2xCPU (on our nodes greater than 80)
+	# Goal: want to know if five minute load avg exceeds 2xCPU (on our nodes greater than 80)
 	# and/or if iowait exceeds 30. Generate CPU load with parallel instances of:
 	# 'dd if=/dev/zero of=/dev/null'
 
 	# Set warning at 50%, Critical at 90%
-	cpu_limit_1min = float(20.10)
-	cpu_limit_5min = float(10.10)
-	cpu_limit_15min = float(5.10)
-	cpu_limit_threshold = cpu_limit_1min
-	cpu_limit_warning = cpu_limit_threshold * .5
-	cpu_limit_critical = cpu_limit_threshold * .9
+	cpu_load_avg_1min = cpu_load_threshold1
+	cpu_load_avg_5min = cpu_load_threshold5
+	cpu_load_avg_15min = cpu_load_threshold15
+	cpu_load_threshold =  cpu_interval
+	cpu_load_avg_warning = cpu_load_threshold * .5
+	cpu_load_avg_critical = cpu_load_threshold * .9
 	print "Running OS load averge until:", finish_time
-	print "CPU threshold limit:", cpu_limit_threshold
+	print "Host:", origin_host
+	print "CPU interval:", cpu_interval_string
+	print "Refresh rate:", refresh_rate, "seconds"
+	print "CPU load threshold:", cpu_load_threshold
 
 	while datetime.datetime.now() < finish_time:
+		raw_avg = os.getloadavg()
+		cpu_load_avg = {1: raw_avg[0], 5: raw_avg[1], 15: raw_avg[2]}
+		logging.info("CPU Load sample: " + str(cpu_load_avg))
 
-		# reduce stdout logging to INFO when testing is done
-		raw_average = os.getloadavg()
-		load_average = {1: raw_average[0], 5: raw_average[1], 15: raw_average[2]}
-		logging.info("CPU Load sample: " + str(load_average))
-
-		if raw_average[0] >= cpu_limit_critical:
-			sys.stdout.write('\r'+ 'WARNING: CPU limit at critical capacity              ')
+		if raw_avg[raw_avg_index] >= cpu_load_avg_critical:
+			sys.stdout.write('\r'+ 'CRITICAL: CPU load avg at critical capacity              ')
 			sys.stdout.flush()
-			logging.critical("CPU load at critical capacity: " + str(load_average))
-		elif raw_average[0] >= cpu_limit_warning:
+			logging.critical("\nCPU load at critical capacity: " + str(cpu_load_avg))
+		elif raw_avg[raw_avg_index] >= cpu_load_avg_warning:
 			# Make sure to make the buffer rewrite at least as long as the last to overwrite it all
-			sys.stdout.write('\r'+ 'WARNING: CPU limit at half capacity                  ')
+			sys.stdout.write('\r'+ 'WARNING: CPU load avg at half capacity                  ')
 			sys.stdout.flush()
-			logging.warning("CPU load at half capacity: " + str(load_average))
-		elif raw_average[0] < cpu_limit_threshold:
-			sys.stdout.write('\r'+ 'CPU limit within threshhold. Continuing to monitor...')
+			logging.warning("\nCPU load at half capacity: " + str(cpu_load_avg))
+		elif raw_avg[raw_avg_index] < cpu_load_threshold:
+			sys.stdout.write('\r'+ 'CPU load avg within threshhold. Continuing to monitor...')
 			sys.stdout.flush()
 
-		# Check outside of conditionals if the limit has been met
-		if raw_average[0] > cpu_limit_threshold:
-			sys.exit("\nCPU limit reached! limiter: " + str(cpu_limit_threshold))
+		# Check outside of conditionals if the load_avg has been met
+		if raw_avg[raw_avg_index] > cpu_load_threshold:
+			logging.info("Sending alert email")
+			send_cpu_alert_email(cpu_load_threshold, cpu_load_avg, cpu_interval)
+			logging.error("\nCPU load avg reached! Load avg: " + str(cpu_load_avg))
+			logging.info("\nSleeping for 15 minutes to allow cooldown")
+			# sleep for a bit to see if cpu load avg calms down so we are not bombarded with emails
+			# Use 15 minutes for now for account for a job finishing up
+			time.sleep(900)
 
 		# Idle for a bit so we are not flooding the log
-		time.sleep(10)
+		time.sleep(refresh_rate)
+#
+# main
+#
 
-test_cpu_load(finish_time)
+test_cpu_load(finish_time, cpu_load_threshold1, cpu_load_threshold5, cpu_load_threshold15, cpu_interval, raw_avg_index)
+
+print ''
+
+#
 # End log file
+#
+
 logging.info("\n-------------------------\nEND LOG FILE\n-------------------------\n") 
-
-'''
-# Rename log file and push to HDFS
-log_filename = "/tmp/resource-monitor-log-" + str(time.strftime("%Y%m%d-%H%M%S")) + ".txt"
-try:
-	os.rename(log_filename_tmp, log_filename)
-except:
-	logging.error("Could not rename logfile: " + str(log_filename_tmp) + ". Please check /tmp on host " + origin_host)
-	sys.exit()
-
-# Handle script log
-if args.nolog is not None:
-	logging.info("Transferring log file: " + str(log_filename) + " to HDFS at location " + log_dest_hdfs)
-	# Check sudo status first
-	proc_status = subprocess.call(['sudo', '-u', 'hdfs', '-n', 'uname'], stdout=open('/dev/null', 'w'))
-	if proc_status is 0:
-		subprocess.call(['sudo', '-n', '-u', 'hdfs', 'hadoop', 'fs', '-put', log_filename, log_dest_hdfs], stdout=open('/dev/null', 'w'))
-		# Attempt to remove old log files now
-		# This should be fine unless a log failed to cleanup and another less privledged user is trying to remove it
-		for logname in glob.glob('/tmp/resource-monitor-log*.txt'):
-			try:
-				os.remove(logname)
-			except:
-				logging.error("Could not remove logfile: " + str(logname) + ". Please check /tmp on host " + origin_host)
-	else:
-		logging.error("Could not transfer log file. Perhaps sudo timed out")
-else:
-	logging.info("Log file will not be transferred to HDFS")
-'''
