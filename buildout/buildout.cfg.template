@@ -1,0 +1,65 @@
+[buildout]
+# Egg names
+project-eggs = 
+#    my-module
+
+# Egg directories
+#develop = 
+#    my-module
+
+# Build parts (add develop eggs if needed)
+parts =
+    paster
+    ipython
+    sphinx
+    pytest
+
+## Version management
+
+## Uncomment to suppress all attempts at automatic package-picking
+#newest = false
+#allow-picked-versions = false
+#allowed-eggs-from-site-packages = pyzmq
+#include-site-packages = false
+
+## Specify used package versions in the [versions] section of versions.cfg
+#extends = versions.cfg
+#versions = versions
+
+# Necessary for buildout not to mess up capitalization.
+extensions = buildout-versions
+
+## Uncomment below (and enable allow-picked-versions)
+## to write out picked versions to a separate file
+#buildout_versions_file = picked_versions.cfg
+
+## Uncomment to prevent downloading packages
+#offline = true
+
+[paster]
+recipe = z3c.recipe.scripts
+eggs = pastescript
+dependent-scripts = true
+
+[ipython]
+recipe = z3c.recipe.scripts
+eggs = 
+    ipython
+    ${buildout:project-eggs}
+dependent-scripts = true
+scripts = ipython
+
+[sphinx]
+recipe = z3c.recipe.scripts
+# Sphinx needs to be able to import our packages
+eggs = 
+    Sphinx
+    ${buildout:project-eggs}
+scripts = sphinx-apidoc sphinx-autogen sphinx-quickstart sphinx-build
+
+[pytest]
+recipe = z3c.recipe.scripts
+eggs =
+    pytest
+    ${buildout:project-eggs}
+scripts = py.test
