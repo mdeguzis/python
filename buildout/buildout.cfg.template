@@ -1,65 +1,52 @@
 [buildout]
-# Egg names
-project-eggs = 
-#    my-module
-
-# Egg directories
-#develop = 
-#    my-module
-
-# Build parts (add develop eggs if needed)
+extensions = mr.developer
+versions = versions
+newest = false
+show-picked-versions = true
+sources = sources
+always-checkout = force
+auto-checkout = *
 parts =
-    paster
-    ipython
-    sphinx
-    pytest
+    python
+    scripts
+    test
 
-## Version management
+# Specify any root indexes
+# Use 'find-links' for additional sources
+index =
+    https://pypi.python.org/pypi
 
-## Uncomment to suppress all attempts at automatic package-picking
-#newest = false
-#allow-picked-versions = false
-#allowed-eggs-from-site-packages = pyzmq
-#include-site-packages = false
+# Specify additional source links
+# It may be best to use all git sources, as pypi devs will archive older versions often
+# Format: <LINK>#egg=<module>-<version>
+#find-links =
+#   https://github.com/<owner>/<repo>/archive/release_1.3.5.tar.gz#egg=example-1.3.5
 
-## Specify used package versions in the [versions] section of versions.cfg
-#extends = versions.cfg
-#versions = versions
+# Define any external rev. control sources we want to use
+# Requires Mr. Devleoper
+[sources]
+nose = git git://github.com/<owner>/<repo_name>.git rev=<rev_tag>
 
-# Necessary for buildout not to mess up capitalization.
-extensions = buildout-versions
+[versions]
+# pin any recipes here
+zc.recipe.egg = 2.0.3
+# pin any eggs here
+example = 1.3.5
 
-## Uncomment below (and enable allow-picked-versions)
-## to write out picked versions to a separate file
-#buildout_versions_file = picked_versions.cfg
-
-## Uncomment to prevent downloading packages
-#offline = true
-
-[paster]
-recipe = z3c.recipe.scripts
-eggs = pastescript
+[python]
+recipe = zc.recipe.egg
+interpreter = python
 dependent-scripts = true
-
-[ipython]
-recipe = z3c.recipe.scripts
-eggs = 
-    ipython
-    ${buildout:project-eggs}
-dependent-scripts = true
-scripts = ipython
-
-[sphinx]
-recipe = z3c.recipe.scripts
-# Sphinx needs to be able to import our packages
-eggs = 
-    Sphinx
-    ${buildout:project-eggs}
-scripts = sphinx-apidoc sphinx-autogen sphinx-quickstart sphinx-build
-
-[pytest]
-recipe = z3c.recipe.scripts
 eggs =
-    pytest
-    ${buildout:project-eggs}
-scripts = py.test
+    example
+
+[scripts]
+recipe = zc.recipe.egg:scripts
+eggs =
+    example
+
+[test]
+recipe = zc.recipe.testrunner
+eggs =
+    example
+
