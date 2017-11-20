@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 
 # Demonstrates pickling and shelving data
 # pickles, stores, and retrieves three lists of strings in a binary file
@@ -6,7 +6,7 @@
 import pickle, shelve
 
 # First, create the three lists that I plan to pickle and write to a file.
-print "Pickling lists."
+print "Pickling lists..."
 variety = ["sweet", "hot", "dill"]
 shape = ["whole", "spear", "chip"] 
 brand = ["Claussen", "Heinz", "Vlassic"]
