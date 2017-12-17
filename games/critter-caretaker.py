@@ -7,7 +7,7 @@
 class Critter(object):
 	"""A virtual pet"""
 
-	# Define a basic total method
+	# Define a basic total attribute
 	total = 0
 
 	# Define a static class attribute for tracking critter totals
@@ -50,14 +50,28 @@ class Critter(object):
 
 # Output attributes. 
 # In this block of code, a parameter is passed to the Critter class
-crit1 = Critter("Poochie")
-crit1.talk()
-crit2 = Critter("Randolph")
-crit2.talk()
+#crit1 = Critter("Poochie")
+#crit1.talk()
+#crit2 = Critter("Randolph")
+#crit2.talk()
 
-print "\nPrinting crit1:"
-print crit1
-print "Directly accessing crit1.name"
-print crit1.name
+#print "\nPrinting crit1:"
+#print crit1
+#print "Directly accessing crit1.name"
+#print crit1.name
+
+print "Accessing the class attribute Critter.total:"
+print Critter.total
+
+print "\nCreating critters..."
+crit1 = Critter("critter 1")
+crit2 = Critter("critter 2")
+crit3 = Critter("critter 3")
+
+# Call the status method
+Critter.status()
+
+print "Accessing the class attribute through an object (crit1): "
+print crit1.total
 
 raw_input("\nPress the enter key to exit.")
