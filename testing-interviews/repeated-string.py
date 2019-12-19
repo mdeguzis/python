@@ -26,7 +26,8 @@ def repeatedString(s, n):
     floor = n // len(s)
     remainder = n % len(s)
     # Multiply original count by "base" floor
-    # Add the count of the remainder slice
+    # Add any a's found in the [0:ramainder] slice
+    # This is essentially the "left over" extra bits beyond the oringal
     count = slen * floor + s[:remainder].count('a')
 
     return count 
