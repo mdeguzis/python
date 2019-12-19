@@ -1,0 +1,52 @@
+[buildout]
+extensions = mr.developer
+versions = versions
+newest = false
+show-picked-versions = true
+sources = sources
+always-checkout = force
+auto-checkout = *
+parts =
+    python
+    scripts
+    test
+
+# Specify any root indexes
+# Use 'find-links' for additional sources
+index =
+    https://pypi.python.org/pypi
+
+# Specify additional source links
+# It may be best to use all git sources, as pypi devs will archive older versions often
+# Format: <LINK>#egg=<module>-<version>
+#find-links =
+#   https://github.com/<owner>/<repo>/archive/release_1.3.5.tar.gz#egg=example-1.3.5
+
+# Define any external rev. control sources we want to use
+# Requires Mr. Devleoper
+[sources]
+nose = git git://github.com/<owner>/<repo_name>.git rev=<rev_tag>
+
+[versions]
+# pin any recipes here
+zc.recipe.egg = 2.0.3
+# pin any eggs here
+example = 1.3.5
+
+[python]
+recipe = zc.recipe.egg
+interpreter = python
+dependent-scripts = true
+eggs =
+    example
+
+[scripts]
+recipe = zc.recipe.egg:scripts
+eggs =
+    example
+
+[test]
+recipe = zc.recipe.testrunner
+eggs =
+    example
+
