@@ -33,7 +33,7 @@ print(any(s))
 s = ''
 print(any(s))
 
-print('\n' + '-' * 5 + 'conditional s' + '-' * 5)
+print('\n' + '-' * 5 + 'conditionals' + '-' * 5)
 
 # At least one is true, returs true
 x = [-1,0,1]
