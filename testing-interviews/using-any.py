@@ -32,3 +32,22 @@ print(any(s))
 
 s = ''
 print(any(s))
+
+print('\n' + '-' * 5 + 'conditional s' + '-' * 5)
+
+# At least one is true, returs true
+x = [-1,0,1]
+y = [1,2,3]
+if any(t < 0 for t in x):
+    # do something`
+	print("At least one is true")
+
+if any(t2 < 0 for t2 in y):
+	# None are true, this never happens
+	print("At least one is true")
+else:
+	print("All of these are false!")
+
+
+
+
