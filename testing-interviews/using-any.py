@@ -4,7 +4,7 @@
 #	True if at least one element of an iterable is true
 #	False if all elements are false or if an iterable is empty
 
-print('-' * 5 + 'numbers' + '-' * 5 + '\n')
+print('-' * 5 + 'numbers' + '-' * 5)
 # True
 l = [1, 3, 4, 0]
 print(any(l))
