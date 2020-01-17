@@ -4,7 +4,7 @@
 s1 = input("Enter string: ")
 
 # Replace white space
-# Case insensitive with casefol
+# Case insensitive with casefold
 s1 = s1.replace(" ","").casefold()
 
 # reverse the string
