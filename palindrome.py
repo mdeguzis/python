@@ -14,6 +14,14 @@ rev_str = reversed(s1)
 # What? haha
 #print(list(s1))
 #print(list(rev_str))
+'''
+with the print:
+    $ python mtdeguzis$ python palindrome.py 
+    Enter string: racecar
+    ['r', 'a', 'c', 'e', 'c', 'a', 'r']
+    ['r', 'a', 'c', 'e', 'c', 'a', 'r']
+    The string is not a palindrome.
+'''
 
 # check if the string is equal to its reverse
 if list(s1) == list(rev_str):
