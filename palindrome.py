@@ -5,19 +5,21 @@ s1 = input("Enter string: ")
 
 # Replace white space
 # Case insensitive with casefold
-s1 = s1.replace(" ","").casefold()
+# Make into a list ahead of time if you wish
+s1 = list(s1.replace(" ","").casefold())
 
 # reverse the string
-rev_str = reversed(s1)
+# Case to list to avoid once-only iterator
+rev_str = list(reversed(s1))
 
-# Only print once here for debugging
 # you can consume an iterator only once
 # If you do, rev_str will be blank later
-#print(list(s1))
-#print(list(rev_str))
+# That's why rev_str is case to list above
+print(list(s1))
+print(list(rev_str))
 
 # check if the string is equal to its reverse
-if list(s1) == list(rev_str):
+if s1 == rev_str:
    print("The string is a palindrome.")
 else:
    print("The string is not a palindrome.")
