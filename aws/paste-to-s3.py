@@ -56,7 +56,7 @@ def create_bucket_if_not_exists(bucket_name):
         try:
           s3_client.create_bucket(Bucket=bucket_name)
           logging.info(f"Bucket {bucket_name} created.")
-         except Exception as e:
+        except Exception as e:
           raise Exception(e)
 
     # Set the bucket policy to delete objects older than 1 year
@@ -120,7 +120,7 @@ if __name__ == '__main__':
 
     # setup bucket
     bucket_name = 'code-pastes'
-    create_bucket_if_not_exists()
+    create_bucket_if_not_exists(bucket_name)
     
     # Upload file
     logger.info(f"uploading {args.file} to S3")
