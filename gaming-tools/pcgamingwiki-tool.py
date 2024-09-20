@@ -28,15 +28,16 @@ def scrape_save_game_location(game_page_name):
             table = save_game_location_section.find_next('table')
             if table:
                 rows = table.find_all('tr')
+                rows = table.find_all('tr')[1:]  # Skip the header row
+                for row in rows:
+                    system = row.find('th', class_='table-gamedata-body-system').text.strip()
+                    location = row.find('td', class_='table-gamedata-body-location').text.strip()
 
-                for row in rows[1:]:  # Skip the header row
-                    columns = row.find_all('td')
-                    if len(columns) >= 2:
-                        system = columns[0].get_text(strip=True)
-                        location = columns[1].get_text(strip=True)
-                        save_locations[system] = location
+                    # Remove [Note N] from the location
+                    location = re.sub(r'\[Note \d+\]', '', location).strip()
+                    save_locations[system] = location
 
-                return save_locations
+            return save_locations
 
     return {"error": "Save game locations not found."}
 
