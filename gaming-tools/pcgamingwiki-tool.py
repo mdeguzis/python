@@ -4,6 +4,41 @@
 import requests
 import json
 import argparse
+import re
+
+from bs4 import BeautifulSoup
+
+def scrape_save_game_location(game_page_name):
+    """
+    Scrapes the save game location from the PCGamingWiki page for the specified game.
+    There is no cargo table that seems to hold this: https://www.pcgamingwiki.com/wiki/Special:CargoTables
+    """
+
+    url = f'https://www.pcgamingwiki.com/wiki/{game_page_name}'
+    response = requests.get(url)
+
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.content, 'html.parser')
+
+        # Find the "Save_game_data_location" section
+        save_game_location_section = soup.find(id="Save_game_data_location")
+        if save_game_location_section:
+            save_locations = {}
+            # Find the closest table following the "Save game data location" header
+            table = save_game_location_section.find_next('table')
+            if table:
+                rows = table.find_all('tr')
+
+                for row in rows[1:]:  # Skip the header row
+                    columns = row.find_all('td')
+                    if len(columns) >= 2:
+                        system = columns[0].get_text(strip=True)
+                        location = columns[1].get_text(strip=True)
+                        save_locations[system] = location
+
+                return save_locations
+
+    return {"error": "Save game locations not found."}
 
 def fetch_game_data_by_steam_appid(steam_appid=None, game_name=None):
     """
@@ -34,31 +69,35 @@ def fetch_game_data_by_steam_appid(steam_appid=None, game_name=None):
         'formatversion': '2'  # Version 2 for better JSON formatting
     }
 
-    # Send the request to the MediaWiki API
     response = requests.get(api_url, params=params)
 
-    # Check if the response was successful
     if response.status_code == 200:
-        # Parse the JSON response
         data = response.json()
 
-        # If there are results, restructure the output
         if data and 'cargoquery' in data and len(data['cargoquery']) > 0:
-            for entry in data['cargoquery']:
-                title = entry['title']
-
-                # Extract cloud-related fields and organize them under 'cloud_providers'
-                cloud_providers = {
-                    'Steam': title.pop('Steam', 'Unknown'),
-                    'GOG_Galaxy': title.pop('GOG_Galaxy', 'Unknown'),
-                    'OneDrive': title.pop('OneDrive', 'Unknown')
+            title = data['cargoquery'][0]['title']
+            game_page_name = title['Page']
+            game_details = {
+                "Page": game_page_name,
+                "Developers": title.get('Developers', 'Unknown'),
+                "Released": title.get('Released', 'Unknown'),
+                "Cover_URL": title.get('Cover_URL', 'Unknown'),
+                "4K_Ultra_HD": title.get('4K_Ultra_HD', 'Unknown'),
+                "HDR": title.get('HDR', 'Unknown'),
+                "Ultrawidescreen": title.get('Ultrawidescreen', 'Unknown'),
+                "cloud_providers": {
+                    "Steam": title.get('Steam', 'Unknown'),
+                    "GOG_Galaxy": title.get('GOG_Galaxy', 'Unknown'),
+                    "OneDrive": title.get('OneDrive', 'Unknown')
                 }
+            }
 
-                # Add the 'cloud_providers' key to the output
-                title['cloud_providers'] = cloud_providers
+            # Scrape the save game location after resolving the game name
+            save_game_location = scrape_save_game_location(game_page_name)
+            game_details['save_game_location'] = save_game_location
 
-        # Pretty-print the reorganized JSON response
-        print(json.dumps(data, indent=4))
+            # Pretty-print the final game details
+            print(json.dumps(game_details, indent=4))
     else:
         print(f"Failed to retrieve data. Status code: {response.status_code}")
 
