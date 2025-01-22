@@ -1,0 +1,13 @@
+[project]
+name = "recipe"
+version = "0.1.0"
+description = "Project env for import/export recipe tools"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "bs4>=0.0.2",
+    "cryptography>=44.0.0",
+    "isodate>=0.7.2",
+    "pillow>=11.1.0",
+    "requests>=2.32.3",
+]

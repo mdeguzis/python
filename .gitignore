@@ -1,2 +1,4 @@
 *.pyc
 .git/hooks
+**.egg-info
+**dist
