@@ -20,7 +20,7 @@ from cryptography.fernet import Fernet
 from PIL import Image
 
 home_dir = os.path.expanduser("~")
-log_file = f"{home_dir}/recipe-sage-export.log"
+log_file = f"{home_dir}/recipesage-export.log"
 
 from cryptography.fernet import Fernet
 
@@ -83,11 +83,11 @@ class CredentialManager:
             self.cred_file.write_bytes(encrypted_data)
             self.cred_file.chmod(0o600)  # Only owner can read/write
 
-            logger.debug(f"Stored encrypted credentials in {self.cred_file}")
+            logger.debug("Stored encrypted credentials in %s", self.cred_file)
             return True
 
         except Exception as e:
-            logger.error(f"Error storing credentials: {e}")
+            logger.error("Error storing credentials: %s", e)
             return False
 
     def get_credentials(self) -> Optional[tuple[str, str]]:
@@ -124,7 +124,7 @@ class CredentialManager:
             self.cred_file.unlink(missing_ok=True)
             return True
         except Exception as e:
-            logger.error(f"Error clearing credentials: {e}")
+            logger.error("Error clearing credentials: %s", e)
             return False
 
 
@@ -301,18 +301,65 @@ class RecipeSageAPI:
         return None
 
 
+def is_running_from_cron() -> bool:
+    """
+    Determine if script is running from cron.
+
+    Checks multiple indicators:
+    1. Process parent (cron/crond)
+    2. CRON environment variable
+    3. Limited environment variables typical of cron
+    4. TTY access
+    """
+    # Check parent process name
+    try:
+        with open(f"/proc/{os.getppid()}/comm", "r", encoding="utf-8") as f:
+            parent_proc = f.read().strip()
+            if parent_proc in ["cron", "crond"]:
+                return True
+    except (FileNotFoundError, PermissionError):
+        pass
+
+    # Check environment variables
+    env_indicators = {
+        "TERM": "dumb",  # Cron typically sets TERM=dumb
+        "SHELL": "/bin/sh",  # Cron typically uses /bin/sh
+        "CRON": "1",  # Some cron implementations set this
+    }
+
+    matches = sum(os.environ.get(k) == v for k, v in env_indicators.items())
+
+    # Check for limited environment (typical of cron)
+    if len(os.environ) < 10 and matches >= 2:
+        return True
+
+    # Check for TTY
+    if not os.isatty(0):
+        return True
+
+    return False
+
+
 def get_credentials(service_name: str = "RecipeSage") -> tuple[str, str]:
     """Get credentials, prompting if not stored."""
     cred_manager = CredentialManager(service_name)
+    cronjob = is_running_from_cron()
+    logging.debug("Running via cron?: %s", cronjob)
 
     # Try to get stored credentials
     if stored_creds := cred_manager.get_credentials():
         logger.info("Using stored credentials")
         return stored_creds
 
-    # Prompt for credentials
-    email = input("Enter your email: ")
-    password = getpass.getpass("Enter password: ")
+    else:
+        # Check if running from cron
+        if cronjob:
+            raise RuntimeError(
+                "Credentials not found and running from cron. "
+                "Please run manually first to set up credentials."
+            )
+        email = input("Enter your email: ")
+        password = getpass.getpass("Enter password: ")
 
     # Store credentials
     if cred_manager.store_credentials(email, password):
