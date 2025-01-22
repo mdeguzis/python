@@ -344,7 +344,7 @@ def get_credentials(service_name: str = "RecipeSage") -> tuple[str, str]:
     """Get credentials, prompting if not stored."""
     cred_manager = CredentialManager(service_name)
     cronjob = is_running_from_cron()
-    logging.debug("Running via cron?: %s", cronjob)
+    logging.info("Running via cron?: %s", cronjob)
 
     # Try to get stored credentials
     if stored_creds := cred_manager.get_credentials():
