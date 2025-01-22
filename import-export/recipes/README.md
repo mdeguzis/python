@@ -1,10 +1,18 @@
-## Recipe importers/exporters
+# Recipe importers/exporters
 
-NOTE: `pipenv` is used here vs. `uv`, as these are ran on Termux, and `uv` does not yet support it/Android: https://github.com/astral-sh/uv/issues/2705
+## Installation/usage
 
-## Using
+### Using 'uv'
+
+```
+uv venv
+uv run <FILE>
+```
+
+### Using venv
 
 ```
 python -m venv venv
 ./venv/bin/pip install -e .
+./venv/bin/python run <FILE>
 ```
