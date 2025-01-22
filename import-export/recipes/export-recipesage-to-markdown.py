@@ -846,7 +846,7 @@ def export_recipes_to_markdown(json_file, data_dir, output_dir, sync):
 
     logger.info("Generating file manifest for RecipeSage...")
     manifest = generate_manifest(output_dir)
-    manifest_file = os.path.join(data_dir, "manifest.json")
+    manifest_file = os.path.join(output_dir, data_dir, "manifest.json")
     with open(manifest_file, "w", encoding="utf-8") as f:
         f.write(json.dumps(manifest, indent=4))
 
