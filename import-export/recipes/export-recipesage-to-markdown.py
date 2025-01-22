@@ -22,13 +22,6 @@ from PIL import Image
 home_dir = os.path.expanduser("~")
 log_file = f"{home_dir}/recipe-sage-export.log"
 
-import base64
-import json
-import logging
-import os
-from pathlib import Path
-from typing import Optional
-
 from cryptography.fernet import Fernet
 
 logger = logging.getLogger(__name__)
