@@ -19,11 +19,6 @@ import requests
 from cryptography.fernet import Fernet
 from PIL import Image
 
-home_dir = os.path.expanduser("~")
-log_file = f"{home_dir}/recipesage-export.log"
-
-from cryptography.fernet import Fernet
-
 logger = logging.getLogger(__name__)
 
 
@@ -470,6 +465,7 @@ def generate_manifest(root_path):
     :return: A nested dictionary representing the directory	structure and files
     """
 
+    logger.debug("Generating manifest for: %s", root_path)
     manifest = {}
     for root, dirs, files in os.walk(root_path):
         # Get the relative path	from the root directory
@@ -973,15 +969,16 @@ if __name__ == "__main__":
         help="Remove recipes in	output directory that don't	exist in source",
     )
     args = parser.parse_args()
+    data_dir = os.path.join(args.output_dir, "data")
+    log_filename = f"{data_dir}/recipesage-export.log"
 
     # logging
     if args.debug:
-        logger = initialize_logger(log_level=logging.DEBUG)
+        logger = initialize_logger(log_level=logging.DEBUG, log_filename=log_filename)
     else:
-        logger = initialize_logger()
+        logger = initialize_logger(log_filename=log_filename)
 
     # Create dirs
-    data_dir = os.path.join(args.output_dir, "data")
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     if not os.path.exists(args.output_dir):
@@ -1020,11 +1017,8 @@ if __name__ == "__main__":
         logger.info("Saving a copy of the input JSON file in the output directory")
         shutil.copy(args.file, data_dir)
 
-    # Copy log to output dir
-    shutil.copy(log_file, data_dir)
-
     # Trim export files
     trim_export_files(data_dir)
 
-    logger.info("Done. Log: %s", log_file)
+    logger.info("Done. Log: %s", log_filename)
     logger.info("See output directory: %s", args.output_dir)
