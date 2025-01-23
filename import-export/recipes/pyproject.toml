@@ -7,7 +7,14 @@ requires-python = ">=3.10"
 dependencies = [
     "bs4>=0.0.2",
     "cryptography>=44.0.0",
+    "deep-translator>=1.11.4",
+    "icu>=0.0.1",
     "isodate>=0.7.2",
+    "langdetect>=1.0.9",
+    "lingua>=4.15.0",
+    "numpy>=2.2.2",
     "pillow>=11.1.0",
+    "polyglot>=16.7.4",
+    "pytube>=15.0.0",
     "requests>=2.32.3",
 ]
