@@ -87,17 +87,20 @@ def get_video_info(url):
                 description = element["videoSecondaryInfoRenderer"][
                     "attributedDescription"
                 ]["content"]
+                channel_owner = element["videoSecondaryInfoRenderer"]["owner"][
+                    "videoOwnerRenderer"
+                ]["title"]["runs"][0]["text"]
                 break
 
         # Translate?
         # if not is_english(title):
-        print("Translating title...")
+        # print("Translating title...")
         title = translate_to_english(title)
-        # if not is_english(description):
-        print("Translating description...")
+        ## if not is_english(description):
+        # print("Translating description...")
         description = translate_to_english(description)
 
-        return {"title": title, "channel": "TODO", "description": description}
+        return {"title": title, "channel": channel_owner, "description": description}
 
     except requests.RequestException as e:
         return f"Network error: {str(e)}"
