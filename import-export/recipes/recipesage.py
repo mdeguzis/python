@@ -22,7 +22,7 @@ from deep_translator import GoogleTranslator
 from langdetect import detect
 from PIL import Image
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("recipesage")
 
 
 class ExportType(Enum):
@@ -32,45 +32,58 @@ class ExportType(Enum):
     APP = "app"
 
 
+class ImportType(Enum):
+    """Type of import source."""
+
+    YOUTUBE = "youtube"
+
+
 class ImportHandler:
     """A handler class for importing and scraping recipes from various types."""
 
-    def __init__(self, import_type: str, url: str) -> None:
+    def __init__(self, args, url: str) -> None:
         """
         Initialize the ImportHandler with a YouTube URL.
 
         :param youtube_url: The URL of the YouTube video to scrape.
         """
-        if import_type == "youtube":
-            self.scrape_youtube(url)
+        self.url = url
+        self.type = type
+        self.args = args
 
-    def translate_to_english(self, text: str):
+    def translate_to_english(self, text: str) -> str:
         """
-        Translate text to English
+        Translate text to English.
         """
 
-        print("Translating text, please wait...")
-        translator = GoogleTranslator(source="auto", target="en")
-        lines = text.split("\n")
         translated_lines = []
+        try:
+            translator = GoogleTranslator(source="auto", target="en")
+            translated = translator.translate(text)
 
-        total_count = 0
-        for line in lines:
-            total_count += 1
-            if not line.strip():  # Skip empty lines
-                continue
-            try:
-                # Add a small delay to avoid rate limiting
-                time.sleep(0.5)
-                print(f"Translating line: {total_count}")
-                translated_line = translator.translate(line)
-                translated_lines.append(translated_line)
-            except Exception as e:
-                print(f"Error translating line: {line}")
-                print(f"Error: {str(e)}")
-                translated_lines.append(line)  # Keep original if translation fails
+            # Split the translated text into lines
+            lines = translated.split("\n")
 
-        return "\n".join(translated_lines)
+            # Debug log each line to confirm it is separated
+            for line in lines:
+                logger.debug(f"Translated line: {line}")
+                translated_lines.append(line)
+
+            # Join lines back to visually separate them for output
+            return "\n".join(translated_lines)
+
+        except Exception as e:
+            logger.error(f"Error translating text: {e}")
+            return text
+
+    def get_recipe(self, source_type: ImportType) -> Dict[str, Any]:
+        """
+        Get recipe from YouTube
+        """
+
+        # Get recipe from YouTube
+        if source_type == ImportType.YOUTUBE:
+            return self.scrape_youtube(self.url)
 
     def scrape_youtube(self, url: str):
         """
@@ -136,10 +149,16 @@ class ImportHandler:
             # print("Translating description...")
             description = self.translate_to_english(description)
 
+            # TODO - parse ingredients and steps from description
+            ingredients = "None"
+            directions = "None"
+
             return {
                 "title": title,
                 "channel": channel_owner,
                 "description": description,
+                "ingredients": ingredients,
+                "directions": directions,
             }
 
         except requests.RequestException as e:
@@ -418,16 +437,24 @@ class RecipeSageAPI:
 def parse_arguments():
     """arguments handler"""
 
-    parser = argparse.ArgumentParser(description="Python utilities for RecipeSage.")
+    # Common options
+    common_parser = argparse.ArgumentParser(add_help=False)
+    common_parser.add_argument(
+        "--debug", "-d", action="store_true", help="Enable debug mode"
+    )
+
+    parser = argparse.ArgumentParser(
+        description="Python utilities for RecipeSage.",
+        parents=[common_parser],
+    )
     subparsers = parser.add_subparsers(
         dest="command", required=True, help="Main commands"
     )
 
-    # Common options
-    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
-
     # import command
-    export_parser = subparsers.add_parser("import", help="Import commands")
+    export_parser = subparsers.add_parser(
+        "import", help="Import commands", parents=[common_parser]
+    )
     export_parser.add_argument(
         "-y",
         "--from-youtube",
@@ -438,7 +465,9 @@ def parse_arguments():
     )
 
     # export command
-    export_parser = subparsers.add_parser("export", help="Export data commands")
+    export_parser = subparsers.add_parser(
+        "export", help="Export data commands", parents=[common_parser]
+    )
     export_parser.add_argument(
         "-a",
         "--auto-import",
@@ -1111,7 +1140,7 @@ def sync_markdown_files(extract_dir, processed_files):
     return removed_count
 
 
-def handle_import_command(args):
+def handle_import_command(args) -> None:
     """
     Handle the import command.
 
@@ -1119,8 +1148,27 @@ def handle_import_command(args):
         args (Namespace): Parsed command-line arguments
     """
 
+    if args.from_youtube:
+        import_type = ImportType.YOUTUBE
+    else:
+        logger.error("Error: Invalid import type specified")
+        exit(1)
 
-def handle_export_command(args, data_dir):
+    importer = ImportHandler(args, url=args.from_youtube)
+    recipe = importer.get_recipe(import_type)
+    if not recipe:
+        logger.error("Error: No recipe found")
+        exit(1)
+
+    #
+    print(f"Title: {recipe['title']}")
+    print(f"Author: {recipe['channel']}\n")
+    print(f"Description: {recipe['description']}\n")
+    print(f"Ingredients: {recipe['ingredients']}\n")
+    print(f"Directions: {recipe['directions']}")
+
+
+def handle_export_command(args):
     """
     Handle the export command.
 
@@ -1129,6 +1177,7 @@ def handle_export_command(args, data_dir):
     """
 
     # Create dirs
+    data_dir = os.path.join(args.output_dir, "data")
     if not os.path.exists(data_dir):
         os.makedirs(data_dir)
     if not os.path.exists(args.output_dir):
@@ -1170,28 +1219,33 @@ def handle_export_command(args, data_dir):
     # Trim export files
     trim_export_files(data_dir)
 
+    logger.info("See output directory: %s", args.output_dir)
+
 
 def main() -> None:
     """Main"""
 
     args = parse_arguments()
-    data_dir = os.path.join(args.output_dir, "data")
-    log_filename = f"{data_dir}/recipesage-export.log"
+    home = os.path.expanduser("~")
+    log_filename = f"{home}/recipesage-export.log"
 
     # logging
     if args.debug:
-        logger = initialize_logger(log_level=logging.DEBUG, log_filename=log_filename)
+        logger = initialize_logger(
+            log_level=logging.DEBUG, log_filename=log_filename, scope="recipesage"
+        )
     else:
-        logger = initialize_logger(log_filename=log_filename)
+        logger = initialize_logger(log_filename=log_filename, scope="recipesage")
 
     # Command dispatch
     if args.command == "export":
-        handle_export_command(args, data_dir)
+        logger.debug("Running export commmand")
+        handle_export_command(args)
     elif args.command == "import":
+        logger.debug("Running import commmand")
         handle_import_command(args)
 
     logger.info("Done. Log: %s", log_filename)
-    logger.info("See output directory: %s", args.output_dir)
 
 
 if __name__ == "__main__":
