@@ -13,13 +13,139 @@ from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from urllib.parse import parse_qs, urlparse
 
 import isodate
 import requests
 from cryptography.fernet import Fernet
+from deep_translator import GoogleTranslator
+from langdetect import detect
 from PIL import Image
 
 logger = logging.getLogger(__name__)
+
+
+class ExportType(Enum):
+    """Type of export to perform."""
+
+    API = "api"
+    APP = "app"
+
+
+class ImportHandler:
+    """A handler class for importing and scraping recipes from various types."""
+
+    def __init__(self, import_type: str, url: str) -> None:
+        """
+        Initialize the ImportHandler with a YouTube URL.
+
+        :param youtube_url: The URL of the YouTube video to scrape.
+        """
+        if import_type == "youtube":
+            self.scrape_youtube(url)
+
+    def translate_to_english(self, text: str):
+        """
+        Translate text to English
+        """
+
+        print("Translating text, please wait...")
+        translator = GoogleTranslator(source="auto", target="en")
+        lines = text.split("\n")
+        translated_lines = []
+
+        total_count = 0
+        for line in lines:
+            total_count += 1
+            if not line.strip():  # Skip empty lines
+                continue
+            try:
+                # Add a small delay to avoid rate limiting
+                time.sleep(0.5)
+                print(f"Translating line: {total_count}")
+                translated_line = translator.translate(line)
+                translated_lines.append(translated_line)
+            except Exception as e:
+                print(f"Error translating line: {line}")
+                print(f"Error: {str(e)}")
+                translated_lines.append(line)  # Keep original if translation fails
+
+        return "\n".join(translated_lines)
+
+    def scrape_youtube(self, url: str):
+        """
+        Scape youtube info
+        """
+
+        try:
+            # Add headers to mimic a browser request
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+            }
+
+            # Fetch the video page
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            html_content = response.text
+
+            # Try to find the initial data JSON
+            data_matches = [
+                re.search(r"var ytInitialData = ({.*?});", html_content),
+                re.search(r"ytInitialData\s*=\s*({.*?});", html_content),
+            ]
+
+            data_match = next((m for m in data_matches if m is not None), None)
+            if not data_match:
+                return "Could not find video data in the page."
+
+            data = json.loads(data_match.group(1))
+
+            # Write data to ~//youtube-recipe-extract.json
+            home = os.path.expanduser("~")
+            with open(
+                f"{home}/youtube-recipe-extract.json", "w", encoding="utf-8"
+            ) as f:
+                json.dump(data, f, indent=2)
+            print(f"Data written to {home}/youtube-recipe-extract.json")
+
+            # Navigate through the JSON structure more carefully
+            video_data = data["contents"]["twoColumnWatchNextResults"]["results"][
+                "results"
+            ]["contents"]
+
+            # Parse list elements from video_data
+            for element in video_data:
+                if "videoPrimaryInfoRenderer" in element:
+                    title = element["videoPrimaryInfoRenderer"]["title"]["runs"][0][
+                        "text"
+                    ]
+                elif "videoSecondaryInfoRenderer" in element:
+                    description = element["videoSecondaryInfoRenderer"][
+                        "attributedDescription"
+                    ]["content"]
+                    channel_owner = element["videoSecondaryInfoRenderer"]["owner"][
+                        "videoOwnerRenderer"
+                    ]["title"]["runs"][0]["text"]
+                    break
+
+            # Translate?
+            # if not is_english(title):
+            # print("Translating title...")
+            title = self.translate_to_english(title)
+            ## if not is_english(description):
+            # print("Translating description...")
+            description = self.translate_to_english(description)
+
+            return {
+                "title": title,
+                "channel": channel_owner,
+                "description": description,
+            }
+
+        except requests.RequestException as e:
+            return f"Network error: {str(e)}"
+        except Exception as e:
+            raise
 
 
 class CredentialManager:
@@ -121,13 +247,6 @@ class CredentialManager:
         except Exception as e:
             logger.error("Error clearing credentials: %s", e)
             return False
-
-
-class ExportType(Enum):
-    """Type of export to perform."""
-
-    API = "api"
-    APP = "app"
 
 
 class RecipeSageAPI:
@@ -294,6 +413,66 @@ class RecipeSageAPI:
 
         logger.error(f"Export timed out after {timeout} seconds")
         return None
+
+
+def parse_arguments():
+    """arguments handler"""
+
+    parser = argparse.ArgumentParser(description="Python utilities for RecipeSage.")
+    subparsers = parser.add_subparsers(
+        dest="command", required=True, help="Main commands"
+    )
+
+    # Common options
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode")
+
+    # import command
+    export_parser = subparsers.add_parser("import", help="Import commands")
+    export_parser.add_argument(
+        "-y",
+        "--from-youtube",
+        help="Pass a URL to umport/scrape recipe from a Youtube video's description",
+    )
+    export_parser.add_argument(
+        "-a", "--add", help="Add recipe to RecipeSage via API call"
+    )
+
+    # export command
+    export_parser = subparsers.add_parser("export", help="Export data commands")
+    export_parser.add_argument(
+        "-a",
+        "--auto-import",
+        action="store_true",
+        help="Automatically fetch export file from RecipeSage. Requires "
+        "SAGE_USER and SAGE_PASSWORD be set in the environment",
+    )
+    export_parser.add_argument(
+        "-f", "--file", help="Path to the .recipekeeperrecipes file."
+    )
+    export_parser.add_argument(
+        "-i",
+        "--input-dir",
+        help="Input	directory. This	will export	the	latest file	found.",
+    )
+    export_parser.add_argument(
+        "-o", "--output-dir", required=True, help="Output directory."
+    )
+    export_parser.add_argument(
+        "-u",
+        "--update",
+        action="store_true",
+        default=False,
+        help="Overwrite/update existing	markdown files",
+    )
+    export_parser.add_argument(
+        "-s",
+        "--sync",
+        action="store_true",
+        default=False,
+        help="Remove recipes in	output directory that don't	exist in source",
+    )
+
+    return parser.parse_args()
 
 
 def is_running_from_cron() -> bool:
@@ -932,51 +1111,22 @@ def sync_markdown_files(extract_dir, processed_files):
     return removed_count
 
 
-if __name__ == "__main__":
+def handle_import_command(args):
+    """
+    Handle the import command.
 
-    parser = argparse.ArgumentParser(
-        description="Convert RecipeSage	recipes	to Markdown."
-    )
-    parser.add_argument(
-        "--debug", action="store_true", default=False, help="Enable	debug logging"
-    )
-    parser.add_argument(
-        "-a",
-        "--auto-import",
-        action="store_true",
-        help="Automatically fetch export file from RecipeSage. Requires "
-        "SAGE_USER and SAGE_PASSWORD be set in the environment",
-    )
-    parser.add_argument("-f", "--file", help="Path to the .recipekeeperrecipes file.")
-    parser.add_argument(
-        "-i",
-        "--input-dir",
-        help="Input	directory. This	will export	the	latest file	found.",
-    )
-    parser.add_argument("-o", "--output-dir", required=True, help="Output directory.")
-    parser.add_argument(
-        "-u",
-        "--update",
-        action="store_true",
-        default=False,
-        help="Overwrite/update existing	markdown files",
-    )
-    parser.add_argument(
-        "-s",
-        "--sync",
-        action="store_true",
-        default=False,
-        help="Remove recipes in	output directory that don't	exist in source",
-    )
-    args = parser.parse_args()
-    data_dir = os.path.join(args.output_dir, "data")
-    log_filename = f"{data_dir}/recipesage-export.log"
+    Args:
+        args (Namespace): Parsed command-line arguments
+    """
 
-    # logging
-    if args.debug:
-        logger = initialize_logger(log_level=logging.DEBUG, log_filename=log_filename)
-    else:
-        logger = initialize_logger(log_filename=log_filename)
+
+def handle_export_command(args, data_dir):
+    """
+    Handle the export command.
+
+    Args:
+        args (Namespace): Parsed command-line arguments
+    """
 
     # Create dirs
     if not os.path.exists(data_dir):
@@ -1020,5 +1170,29 @@ if __name__ == "__main__":
     # Trim export files
     trim_export_files(data_dir)
 
+
+def main() -> None:
+    """Main"""
+
+    args = parse_arguments()
+    data_dir = os.path.join(args.output_dir, "data")
+    log_filename = f"{data_dir}/recipesage-export.log"
+
+    # logging
+    if args.debug:
+        logger = initialize_logger(log_level=logging.DEBUG, log_filename=log_filename)
+    else:
+        logger = initialize_logger(log_filename=log_filename)
+
+    # Command dispatch
+    if args.command == "export":
+        handle_export_command(args, data_dir)
+    elif args.command == "import":
+        handle_import_command(args)
+
     logger.info("Done. Log: %s", log_filename)
     logger.info("See output directory: %s", args.output_dir)
+
+
+if __name__ == "__main__":
+    main()
