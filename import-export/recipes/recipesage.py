@@ -239,7 +239,7 @@ class CredentialManager:
         """
         try:
             if not (self.key_file.exists() and self.cred_file.exists()):
-                logger.debug("No stored credentials found")
+                logger.debug("No stored credentials/key found at: %s", self.cred_dir)
                 return None
 
             # Read and decrypt
