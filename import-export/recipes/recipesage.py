@@ -12,14 +12,12 @@ import time
 from enum import Enum
 from io import BytesIO
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
-from urllib.parse import parse_qs, urlparse
+from typing import Any, Dict, Optional, Union
 
 import isodate
 import requests
 from cryptography.fernet import Fernet
 from deep_translator import GoogleTranslator
-from langdetect import detect
 from PIL import Image
 
 logger = logging.getLogger("recipesage")
@@ -324,15 +322,20 @@ class RecipeSageAPI:
         Returns:
             str: Job ID if successful, None otherwise
         """
+
+        logger.debug("Starting export job")
         if not self.token:
             logger.error("Not authenticated. Please login first.")
             return None
 
         export_url = f"{self.base_url}/trpc/jobs.startExportJob"
+        logger.debug("Export URL: %s", export_url)
 
         try:
             payload = {"json": {"format": "jsonld"}}
+            logger.debug("Payload: %s", payload)
 
+            logger.debug("Requesting payload with token")
             response = self.session.post(
                 export_url,
                 headers={"Authorization": f"Bearer {self.token}"},
@@ -351,11 +354,36 @@ class RecipeSageAPI:
                     logger.info("Export job started: %s", job_id)
                     return job_id
 
-            logger.error(
-                "Failed to start export job: %s: %e",
-                response.status_code,
-                response.text,
-            )
+            else:
+                try:
+                    error_data = json.loads(response.text)
+                    # Handle different error response structures
+                    if isinstance(error_data, dict):
+                        # Case 1: error_data has 'json' key with 'message'
+                        if "json" in error_data and "message" in error_data["json"]:
+                            message = error_data["json"]["message"]
+                        # Case 2: error_data has 'error' key with 'message'
+                        elif "error" in error_data and "message" in error_data["error"]:
+                            message = json.loads(error_data["error"]["message"])
+                        else:
+                            message = error_data
+                    else:
+                        # Case 3: error_data is already the message (like a list)
+                        message = error_data
+
+                    logger.error(
+                        "Failed to start export job: %s: %s",
+                        response.status_code,
+                        json.dumps(message, indent=4),
+                    )
+                except json.JSONDecodeError:
+                    # Fallback for non-JSON responses
+                    logger.error(
+                        "Failed to start export job: %s: %s",
+                        response.status_code,
+                        response.text,
+                    )
+
             return None
 
         except requests.exceptions.RequestException as e:
@@ -944,7 +972,7 @@ def get_export_type(filepath: str) -> Optional[ExportType]:
         return None
 
     except (json.JSONDecodeError, IOError) as e:
-        logger.error("Error reading file %s: %s", file_path, e)
+        logger.error("Error reading file %s: %s", filepath, e)
         return None
 
 
@@ -1239,10 +1267,10 @@ def main() -> None:
 
     # Command dispatch
     if args.command == "export":
-        logger.debug("Running export commmand")
+        logger.debug("Running export command")
         handle_export_command(args)
     elif args.command == "import":
-        logger.debug("Running import commmand")
+        logger.debug("Running import command")
         handle_import_command(args)
 
     logger.info("Done. Log: %s", log_filename)
