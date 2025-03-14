@@ -12,7 +12,7 @@ name = "pypi"
 [packages]
 
 simplejson = "*"
-ujson = "*"
+ujson = ">5.4.0"
 python-cjson = "*"
 yajl = "*"
 jsonlib = "*"
