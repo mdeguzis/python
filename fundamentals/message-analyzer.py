@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Description: demonstrates len() and the 'in' operator
 # Written in python 2

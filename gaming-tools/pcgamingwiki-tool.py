@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # Sample page with all fields: https://www.pcgamingwiki.com/w/api.php?action=parse&format=jsonfm&pageid=146683&prop=wikitext
 
 import requests
