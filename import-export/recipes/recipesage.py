@@ -321,6 +321,12 @@ class RecipeSageAPI:
 
         Returns:
             str: Job ID if successful, None otherwise
+
+        v3.0.0 and following versions contain a breaking change in the tRPC
+        API where it no longer uses SuperJSON for input/output formatting.
+        This means there's no "json" wrapper needed.
+        https://github.com/julianpoy/RecipeSage/issues/1536
+
         """
 
         logger.debug("Starting export job")
@@ -332,7 +338,8 @@ class RecipeSageAPI:
         logger.debug("Export URL: %s", export_url)
 
         try:
-            payload = {"json": {"format": "jsonld"}}
+            payload = {"format": "jsonld"}
+            logger.debug("Headers: %s", {"Authorization": "Bearer <redacted>"})
             logger.debug("Payload: %s", payload)
 
             logger.debug("Requesting payload with token")
@@ -344,12 +351,8 @@ class RecipeSageAPI:
 
             if response.status_code == 200:
                 data = response.json()
-                job_id = (
-                    data.get("result", "")
-                    .get("data", "")
-                    .get("json", "")
-                    .get("jobId", "")
-                )
+                logger.debug("Response data: %s", data)
+                job_id = data.get("result", "").get("data", "").get("jobId", "")
                 if job_id:
                     logger.info("Export job started: %s", job_id)
                     return job_id
@@ -441,7 +444,7 @@ class RecipeSageAPI:
                 return None
 
             # Find our job
-            for job in jobs["result"]["data"]["json"]:
+            for job in jobs["result"]["data"]:
                 # logger.debug("Job: %s", job)
                 this_job_id = job.get("id", "")
                 if this_job_id == job_id:
@@ -701,7 +704,7 @@ def generate_manifest(root_path):
     :return: A nested dictionary representing the directory	structure and files
     """
 
-    logger.debug("Generating manifest for: %s", root_path)
+    logger.debug(f"Generating manifest for: {root_path}")
     manifest = {}
     for root, dirs, files in os.walk(root_path):
         # Get the relative path	from the root directory
@@ -1071,7 +1074,7 @@ def export_recipes_to_markdown(json_file, data_dir, output_dir, sync):
             md_file.write(markdown)
 
         processed_files.add(output_file)
-        logger.info("Exported: %s", output_file)
+        logger.info(f"Exported: {output_file}")
 
     if sync:
         sync_markdown_files(output_dir, processed_files)
@@ -1101,7 +1104,7 @@ def sync_markdown_files(extract_dir, processed_files):
     Returns:
             int: Number	of files removed during	sync
     """
-    logging.warning("Syncing: Removing duplicates and old recipes...")
+    logger.warning("Syncing: Removing duplicates and old recipes...")
     removed_count = 0
     json_dir = os.path.join(extract_dir, "json")
 
