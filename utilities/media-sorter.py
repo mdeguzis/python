@@ -24,7 +24,8 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 DEFAULT_SOURCE_DIR = "/mnt/nvidia-shield/media/downloads"
-DEFAULT_DEST_DIR = "/mnt/nvidia-shield/media"
+# fstab: //192.168.1.128/samsung /mnt/nvidia-shield/samsung
+DEFAULT_DEST_DIR = "/mnt/nvidia-shield/samsung"
 
 # Standard subdirectories expected under the destination root
 MEDIA_SUBDIRS = ["movies", "tv-shows", "music", "photos", "home-videos"]
@@ -391,6 +392,40 @@ def tmdb_lookup(name: str, api_key: str, logger: logging.Logger) -> str | None:
 # File-system operations
 # ---------------------------------------------------------------------------
 
+_CHUNK = 1024 * 1024  # 1 MiB read chunks for progress-aware copies
+
+
+def _copy_with_progress(src: Path, dest: Path) -> None:
+    """Copy *src* (file or directory tree) to *dest* with a byte-level tqdm bar,
+    then delete the source.  Replaces shutil.copy2/copytree + delete so that
+    large transfers over slow mounts (CIFS, NFS) show live progress.
+    """
+    from tqdm import tqdm
+
+    def _copy_file(fsrc: Path, fdst: Path, bar: "tqdm") -> None:
+        fdst.parent.mkdir(parents=True, exist_ok=True)
+        with open(fsrc, "rb") as sf, open(fdst, "wb") as df:
+            while chunk := sf.read(_CHUNK):
+                df.write(chunk)
+                bar.update(len(chunk))
+        shutil.copystat(str(fsrc), str(fdst))
+
+    if src.is_file():
+        total = src.stat().st_size
+        with tqdm(total=total, unit="B", unit_scale=True, unit_divisor=1024,
+                  desc=src.name[:45], leave=False) as bar:
+            _copy_file(src, dest, bar)
+        src.unlink()
+    else:
+        files = [f for f in src.rglob("*") if f.is_file()]
+        total = sum(f.stat().st_size for f in files)
+        dest.mkdir(parents=True, exist_ok=True)
+        with tqdm(total=total, unit="B", unit_scale=True, unit_divisor=1024,
+                  desc=src.name[:45], leave=False) as bar:
+            for f in files:
+                _copy_file(f, dest / f.relative_to(src), bar)
+        shutil.rmtree(str(src))
+
 
 def _merge_into(src: Path, dest: Path, overwrite: bool, logger: logging.Logger) -> bool:
     """Sync missing files from *src* directory into an existing *dest* directory.
@@ -413,7 +448,7 @@ def _merge_into(src: Path, dest: Path, overwrite: bool, logger: logging.Logger) 
             else:
                 dest_item.unlink()
         try:
-            shutil.move(str(item), str(dest_item))
+            _copy_with_progress(item, dest_item)
             logger.info("  Added to existing folder: %s -> %s/", item.name, dest.name)
             added += 1
         except OSError as exc:
@@ -468,7 +503,7 @@ def move_item(
 
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(src), str(dest))
+        _copy_with_progress(src, dest)
         logger.info("Moved: %s  ->  %s/", src.name, dest_dir)
         return True
     except OSError as exc:
@@ -722,13 +757,6 @@ def install_cron(script_path: str, args: "argparse.Namespace") -> int:
     and --overwrite if they were passed.
     """
     import subprocess
-
-    if args.source == DEFAULT_SOURCE_DIR and "--source" not in sys.argv and "-s" not in sys.argv:
-        print("Error: --source is required when using --install-cron", file=sys.stderr)
-        return 1
-    if args.destination == DEFAULT_DEST_DIR and "--destination" not in sys.argv and "-d" not in sys.argv:
-        print("Error: --destination is required when using --install-cron", file=sys.stderr)
-        return 1
 
     python = sys.executable
     flags = [
